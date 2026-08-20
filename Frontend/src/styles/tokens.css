@@ -1,0 +1,44 @@
+/**
+ * 디자인 시스템 토큰 (기획 문서 "4. 디자인 시스템" 기준).
+ * Warning 색상 hex는 기획서에 없어 Tailwind amber-500(#F59E0B)으로 임시 지정 — 확정되면 교체.
+ */
+:root {
+  --color-primary: #2563eb;
+  --color-sub: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-gray: #6b7280;
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --color-text: #111827;
+  --color-text-sub: #6b7280;
+  --color-text-muted: #9ca3af;
+
+  --line-1: #e53e3e;
+  --line-2: #38a169;
+  --line-3: #dd6b20;
+
+  --font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  --text-h1: 700 24px/1.4 var(--font-family);
+  --text-h2: 600 20px/1.4 var(--font-family);
+  --text-body1: 400 16px/1.5 var(--font-family);
+  --text-body2: 400 14px/1.5 var(--font-family);
+  --text-caption: 400 12px/1.4 var(--font-family);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  --nav-height: 56px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}

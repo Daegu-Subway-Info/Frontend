@@ -10,18 +10,20 @@ function buildStations(): { all: Station[]; byLine: Record<LineId, Station[]> } 
   const byLine = { '1': [], '2': [], '3': [] } as Record<LineId, Station[]>
 
   for (const lineId of LINE_IDS) {
-    for (const [code, name, alias] of LINE_SEEDS[lineId]) {
+    LINE_SEEDS[lineId].forEach(([code, name, alias], index) => {
       let station = byName.get(name)
       if (!station) {
-        station = { id: name, name, alias, lines: [], codes: {}, isTransfer: false }
+        station = { id: name, name, alias, lines: [], codes: {}, backendIds: {}, isTransfer: false }
         byName.set(name, station)
       }
+      const sequenceNo = index + 1
       station.lines.push(lineId)
       station.codes[lineId] = code
+      station.backendIds[lineId] = Number(lineId) * 1000 + sequenceNo
       station.isTransfer = station.lines.length > 1
       if (alias && !station.alias) station.alias = alias
       byLine[lineId].push(station)
-    }
+    })
   }
 
   return { all: [...byName.values()], byLine }

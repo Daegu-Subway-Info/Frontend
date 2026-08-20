@@ -20,7 +20,14 @@ export interface Station {
   name: string
   alias?: string
   lines: LineId[]
+  /** 대구교통공사 역번호 (예: 반월당 1호선 = '130') */
   codes: Partial<Record<LineId, string>>
+  /**
+   * 백엔드 station_id 추정값 (lineId*1000 + sequence_no, data.sql 시딩 규칙과 동일).
+   * 백엔드는 역을 노선별 row로 따로 저장하므로, 실제 API 연동 시 노선 선택에 따라
+   * 이 중 하나를 골라 fromStationId/toStationId로 보낸다.
+   */
+  backendIds: Partial<Record<LineId, number>>
   isTransfer: boolean
 }
 

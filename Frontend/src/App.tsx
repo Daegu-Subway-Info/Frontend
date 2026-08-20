@@ -1,28 +1,27 @@
-import { NavLink, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
+import BottomNav from './components/BottomNav'
+import styles from './App.module.css'
 import Home from './pages/Home'
-import RoutePage from './pages/Route'
+import LineMap from './pages/LineMap'
+import RouteResult from './pages/RouteResult'
 import Search from './pages/Search'
+import StationDetail from './pages/StationDetail'
 import Timetable from './pages/Timetable'
-import './App.css'
 
 function App() {
   return (
-    <div className="app">
-      <nav className="app-nav">
-        <NavLink to="/">홈</NavLink>
-        <NavLink to="/route">노선</NavLink>
-        <NavLink to="/search">검색</NavLink>
-        <NavLink to="/timetable">시간표</NavLink>
-      </nav>
-
-      <main className="app-content">
+    <div className={styles.app}>
+      <div className={styles.content}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/route" element={<RoutePage />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/route-result" element={<RouteResult />} />
+          <Route path="/lines" element={<LineMap />} />
+          <Route path="/stations/:id" element={<StationDetail />} />
           <Route path="/timetable" element={<Timetable />} />
         </Routes>
-      </main>
+      </div>
+      <BottomNav />
     </div>
   )
 }

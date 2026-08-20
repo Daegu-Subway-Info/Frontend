@@ -1,0 +1,38 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 52px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+}
+
+.back:active {
+  background: var(--color-bg);
+}
+
+.title {
+  font: var(--text-h2);
+  color: var(--color-text);
+  flex: 1;
+}
+
+.right {
+  min-width: 36px;
+  display: flex;
+  justify-content: flex-end;
+}

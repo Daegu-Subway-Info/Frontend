@@ -1,9 +1,10 @@
 import type { Line, LineId, StationSeed } from '../types/subway'
 
+// 색상은 백엔드 시드 데이터(data.sql)의 line_color 값과 동일하게 맞춘다.
 export const LINES: Record<LineId, Line> = {
-  '1': { id: '1', name: '1호선', shortName: '1', color: '#D93F5C' },
-  '2': { id: '2', name: '2호선', shortName: '2', color: '#00A84D' },
-  '3': { id: '3', name: '3호선', shortName: '3', color: '#FFB100' },
+  '1': { id: '1', name: '1호선', shortName: '1', color: '#E53E3E' },
+  '2': { id: '2', name: '2호선', shortName: '2', color: '#38A169' },
+  '3': { id: '3', name: '3호선', shortName: '3', color: '#DD6B20' },
 }
 
 export const LINE_IDS: LineId[] = ['1', '2', '3']
