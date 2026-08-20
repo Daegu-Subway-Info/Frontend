@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import CircularProgress from '@mui/material/CircularProgress'
+import Button from '@mui/material/Button'
+import Divider from '@mui/material/Divider'
 import LineBadge from '../../components/LineBadge'
 import ScreenHeader from '../../components/ScreenHeader'
-import { findRoute } from '../../api/backend'
+import { useLinesQuery, useRouteQuery } from '../../api/queries'
 import { ApiError } from '../../api/http'
-import type { RouteResponse, StationResponse } from '../../api/types'
-import { useLines } from '../../hooks/useLines'
-import styles from './RouteResult.module.css'
+import type { StationResponse } from '../../api/types'
 
 interface LocationState {
   from?: StationResponse
@@ -16,59 +18,68 @@ interface LocationState {
 export default function RouteResult() {
   const location = useLocation()
   const { from, to } = (location.state as LocationState) ?? {}
-  const { lineColor } = useLines()
+  const { data: lines = [] } = useLinesQuery()
+  const lineColor = (lineId: number) => lines.find((l) => l.id === lineId)?.lineColor ?? '#6B7280'
 
-  const [route, setRoute] = useState<RouteResponse | null | undefined>(undefined) // undefined = 로딩중
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!from || !to) return
-    setRoute(undefined)
-    setError(null)
-    findRoute(from.id, to.id)
-      .then(setRoute)
-      .catch((err) => {
-        setRoute(null)
-        setError(err instanceof ApiError ? err.message : '경로를 찾을 수 없습니다.')
-      })
-  }, [from, to])
+  const { data: route, isLoading, error } = useRouteQuery(from?.id, to?.id)
 
   const title = from && to ? `${from.stationName} → ${to.stationName}` : '경로 탐색'
 
   if (!from || !to) {
     return (
-      <div className={styles.page}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <ScreenHeader title={title} />
-        <div className={styles.state}>홈 화면에서 출발역/도착역을 먼저 선택해주세요.</div>
-      </div>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+            홈 화면에서 출발역/도착역을 먼저 선택해주세요.
+          </Typography>
+        </Box>
+      </Box>
     )
   }
 
   return (
-    <div className={styles.page}>
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title={title} />
 
-      {route === undefined && <div className={styles.state}>경로를 찾는 중...</div>}
-      {route === null && <div className={styles.state}>{error}</div>}
+      {isLoading && (
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+
+      {error && (
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+            {error instanceof ApiError ? error.message : '경로를 찾을 수 없습니다.'}
+          </Typography>
+        </Box>
+      )}
 
       {route && (
         <>
-          <div className={styles.summary}>
-            <div className={styles.summaryItem}>
-              <span className={styles.summaryValue}>{Math.round(route.totalDurationSeconds / 60)}분</span>
-              <span className={styles.summaryLabel}>소요시간</span>
-            </div>
-            <div className={styles.summaryItem}>
-              <span className={styles.summaryValue}>{route.totalDistanceKm.toFixed(1)}km</span>
-              <span className={styles.summaryLabel}>환승 {route.transferCount}회</span>
-            </div>
-            <div className={styles.summaryItem}>
-              <span className={styles.summaryValue}>{route.fare.toLocaleString()}원</span>
-              <span className={styles.summaryLabel}>예상 요금</span>
-            </div>
-          </div>
+          <Box sx={{ display: 'flex', gap: 3, p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Box>
+              <Typography variant="h2">{Math.round(route.totalDurationSeconds / 60)}분</Typography>
+              <Typography variant="caption" color="text.secondary">
+                소요시간
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="h2">{route.totalDistanceKm.toFixed(1)}km</Typography>
+              <Typography variant="caption" color="text.secondary">
+                환승 {route.transferCount}회
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="h2">{route.fare.toLocaleString()}원</Typography>
+              <Typography variant="caption" color="text.secondary">
+                예상 요금
+              </Typography>
+            </Box>
+          </Box>
 
-          <div className={styles.timeline}>
+          <Box sx={{ flex: 1, p: 2 }}>
             {route.path.map((station, i) => {
               const isFirst = i === 0
               const isLast = i === route.path.length - 1
@@ -76,37 +87,57 @@ export default function RouteResult() {
               const isTransferPoint = !isFirst && prevLineId !== station.lineId
               const color = lineColor(station.lineId)
               return (
-                <div className={styles.stationRow} key={`${station.id}-${i}`}>
-                  <div className={styles.markerCol}>
-                    <div
-                      className={`${styles.dot} ${isFirst ? styles.start : ''} ${isLast ? styles.end : ''}`}
-                      style={!isFirst && !isLast ? { borderColor: color } : undefined}
+                <Box key={`${station.id}-${i}`} sx={{ display: 'flex', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16 }}>
+                    <Box
+                      sx={{
+                        width: isFirst || isLast ? 12 : 10,
+                        height: isFirst || isLast ? 12 : 10,
+                        borderRadius: '50%',
+                        border: '3px solid',
+                        borderColor: isFirst ? 'primary.main' : isLast ? 'error.main' : color,
+                        bgcolor: isLast ? 'error.main' : 'background.paper',
+                        flexShrink: 0,
+                      }}
                     />
-                    {!isLast && <div className={styles.track} style={{ backgroundColor: color }} />}
-                  </div>
-                  <div className={styles.stationInfo}>
-                    <div className={styles.stationMain}>
-                      <span className={styles.stationName}>{station.stationName}</span>
-                      {isFirst && <span className={styles.stationMeta}>출발</span>}
-                      {isLast && <span className={styles.stationMeta}>도착</span>}
-                      {isTransferPoint && <span className={styles.stationMeta}>환승</span>}
-                    </div>
+                    {!isLast && <Box sx={{ width: 3, flex: 1, minHeight: 28, my: 0.25, bgcolor: color }} />}
+                  </Box>
+                  <Box sx={{ pb: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 600 }}>{station.stationName}</Typography>
+                      {isFirst && (
+                        <Typography variant="caption" color="text.secondary">
+                          출발
+                        </Typography>
+                      )}
+                      {isLast && (
+                        <Typography variant="caption" color="text.secondary">
+                          도착
+                        </Typography>
+                      )}
+                      {isTransferPoint && (
+                        <Typography variant="caption" color="text.secondary">
+                          환승
+                        </Typography>
+                      )}
+                    </Box>
                     {(isFirst || isLast || isTransferPoint) && (
                       <LineBadge name={station.lineName} color={color} />
                     )}
-                  </div>
-                </div>
+                  </Box>
+                </Box>
               )
             })}
-          </div>
+          </Box>
 
-          <div className={styles.footer}>
-            <button type="button" className={styles.startAlarm} disabled>
+          <Divider />
+          <Box sx={{ p: 2 }}>
+            <Button fullWidth variant="contained" size="large" disabled>
               알림 시작 (준비 중)
-            </button>
-          </div>
+            </Button>
+          </Box>
         </>
       )}
-    </div>
+    </Box>
   )
 }

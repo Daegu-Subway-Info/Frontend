@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import CircularProgress from '@mui/material/CircularProgress'
 import LineBadge from '../../components/LineBadge'
 import ScreenHeader from '../../components/ScreenHeader'
-import { getLineDetail, getLines, getStations } from '../../api/backend'
+import { useLineDetailQuery, useLinesQuery, useStationsQuery } from '../../api/queries'
 import { ApiError } from '../../api/http'
-import type { LineDetailResponse, LineResponse, StationResponse } from '../../api/types'
 import { groupByName } from '../../utils/groupStations'
-import styles from './LineMap.module.css'
 
-type Tab = 'all' | number
+type TabValue = 'all' | number
 
 /**
  * 실제 지리 좌표 기반 SVG 노선도가 아니라, GET /api/lines/{id}가 주는
@@ -21,110 +24,121 @@ type Tab = 'all' | number
  */
 export default function LineMap() {
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('all')
+  const [tab, setTab] = useState<TabValue>('all')
 
-  const [lines, setLines] = useState<LineResponse[]>([])
-  const [details, setDetails] = useState<Record<number, LineDetailResponse>>({})
-  const [transferGroups, setTransferGroups] = useState<Map<string, StationResponse[]>>(new Map())
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    getLines()
-      .then(async (ls) => {
-        setLines(ls)
-        const detailList = await Promise.all(ls.map((l) => getLineDetail(l.id)))
-        setDetails(Object.fromEntries(detailList.map((d) => [d.id, d])))
-      })
-      .catch((err) => setError(err instanceof ApiError ? err.message : '노선 정보를 불러오지 못했습니다.'))
-
-    getStations()
-      .then((stations) => setTransferGroups(groupByName(stations)))
-      .catch(() => {
-        /* 환승 배지는 부가 정보라 실패해도 노선도 자체는 보여준다 */
-      })
-  }, [])
+  const { data: lines = [], isLoading, error } = useLinesQuery()
+  const { data: allStations = [] } = useStationsQuery()
+  const transferGroups = groupByName(allStations)
 
   const visibleLines = tab === 'all' ? lines : lines.filter((l) => l.id === tab)
 
   return (
-    <div className={styles.page}>
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title="대구 지하철 노선도" onBack={() => navigate('/')} />
 
-      <div className={styles.tabs}>
-        <button
-          type="button"
-          className={`${styles.tab} ${tab === 'all' ? styles.active : ''}`}
-          onClick={() => setTab('all')}
-        >
-          전체
-        </button>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        variant="scrollable"
+        sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 44 }}
+      >
+        <Tab label="전체" value="all" sx={{ minHeight: 44 }} />
         {lines.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            className={`${styles.tab} ${tab === l.id ? styles.active : ''}`}
-            onClick={() => setTab(l.id)}
-          >
-            {l.lineName}
-          </button>
+          <Tab key={l.id} label={l.lineName} value={l.id} sx={{ minHeight: 44 }} />
         ))}
-      </div>
+      </Tabs>
 
-      {error && <div className={styles.state}>{error}</div>}
+      {isLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+      {error && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", p: 2 }}>
+          {error instanceof ApiError ? error.message : '노선 정보를 불러오지 못했습니다.'}
+        </Typography>
+      )}
 
-      <div className={styles.body}>
-        {visibleLines.map((line) => {
-          const stations = details[line.id]?.stations ?? []
-          return (
-            <div className={styles.lineColumn} key={line.id}>
-              <div className={styles.lineHeader}>
-                <span className={styles.lineName} style={{ color: line.lineColor }}>
-                  {line.lineName}
-                </span>
-              </div>
-              {stations.map((station, i) => {
-                const group = transferGroups.get(station.stationName) ?? []
-                const otherLines = group.filter((g) => g.id !== station.id)
-                const isTransfer = otherLines.length > 0
-                return (
-                  <button
-                    key={station.id}
-                    type="button"
-                    className={styles.stationButton}
-                    onClick={() => navigate(`/stations/${station.id}`)}
-                  >
-                    <div className={styles.markerCol}>
-                      <div
-                        className={`${styles.dot} ${isTransfer ? styles.transfer : ''}`}
-                        style={{ borderColor: line.lineColor }}
-                      />
-                      {i < stations.length - 1 && (
-                        <div className={styles.track} style={{ backgroundColor: line.lineColor }} />
-                      )}
-                    </div>
-                    <span className={styles.stationTextCol}>
-                      <span className={`${styles.stationLabel} ${isTransfer ? styles.transfer : ''}`}>
-                        {station.stationName}
-                      </span>
-                      {isTransfer && (
-                        <span className={styles.transferBadges}>
-                          {otherLines.map((o) => (
-                            <LineBadge
-                              key={o.id}
-                              name={o.lineName}
-                              color={lines.find((l) => l.id === o.lineId)?.lineColor ?? '#6B7280'}
-                            />
-                          ))}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )
-        })}
-      </div>
-    </div>
+      <Box sx={{ flex: 1, display: 'flex', gap: 3, p: 2, overflowX: 'auto' }}>
+        {visibleLines.map((line) => (
+          <LineColumn
+            key={line.id}
+            lineId={line.id}
+            lineName={line.lineName}
+            lineColor={line.lineColor}
+            transferGroups={transferGroups}
+            lineColorOf={(id) => lines.find((l) => l.id === id)?.lineColor ?? '#6B7280'}
+            onSelect={(id) => navigate(`/stations/${id}`)}
+          />
+        ))}
+      </Box>
+    </Box>
+  )
+}
+
+function LineColumn({
+  lineId,
+  lineName,
+  lineColor,
+  transferGroups,
+  lineColorOf,
+  onSelect,
+}: {
+  lineId: number
+  lineName: string
+  lineColor: string
+  transferGroups: ReturnType<typeof groupByName>
+  lineColorOf: (lineId: number) => string
+  onSelect: (stationId: number) => void
+}) {
+  const { data: detail } = useLineDetailQuery(lineId)
+  const stations = detail?.stations ?? []
+
+  return (
+    <Box sx={{ minWidth: 160, display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h2" sx={{ color: lineColor, mb: 1.5 }}>
+        {lineName}
+      </Typography>
+      {stations.map((station, i) => {
+        const group = transferGroups.get(station.stationName) ?? []
+        const otherLines = group.filter((g) => g.id !== station.id)
+        const isTransfer = otherLines.length > 0
+        return (
+          <Box
+            key={station.id}
+            component="button"
+            onClick={() => onSelect(station.id)}
+            sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, border: 'none', background: 'none', p: 0, cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16 }}>
+              <Box
+                sx={{
+                  width: isTransfer ? 14 : 10,
+                  height: isTransfer ? 14 : 10,
+                  borderRadius: '50%',
+                  border: isTransfer ? '3px solid' : '2.5px solid',
+                  borderColor: lineColor,
+                  bgcolor: 'background.paper',
+                  flexShrink: 0,
+                }}
+              />
+              {i < stations.length - 1 && <Box sx={{ width: 3, height: 22, bgcolor: lineColor }} />}
+            </Box>
+            <Box sx={{ py: 0.5, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <Typography variant="body2" sx={{ fontWeight: isTransfer ? 700 : 400 }}>
+                {station.stationName}
+              </Typography>
+              {isTransfer && (
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  {otherLines.map((o) => (
+                    <LineBadge key={o.id} name={o.lineName} color={lineColorOf(o.lineId)} />
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Box>
+        )
+      })}
+    </Box>
   )
 }

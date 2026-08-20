@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
+import Box from '@mui/material/Box'
 import BottomNav from './components/BottomNav'
-import styles from './App.module.css'
 import Home from './pages/Home'
 import LineMap from './pages/LineMap'
 import RouteResult from './pages/RouteResult'
@@ -10,8 +10,8 @@ import Timetable from './pages/Timetable'
 
 function App() {
   return (
-    <div className={styles.app}>
-      <div className={styles.content}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100svh' }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<Search />} />
@@ -20,9 +20,9 @@ function App() {
           <Route path="/stations/:id" element={<StationDetail />} />
           <Route path="/timetable" element={<Timetable />} />
         </Routes>
-      </div>
+      </Box>
       <BottomNav />
-    </div>
+    </Box>
   )
 }
 

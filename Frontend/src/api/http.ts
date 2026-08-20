@@ -1,4 +1,10 @@
+import axios, { AxiosError } from 'axios'
 import type { ApiResponse } from './types'
+
+export const client = axios.create({
+  baseURL: '/api', // vite dev 프록시가 localhost:8080으로 넘겨준다 (vite.config.ts 참고)
+  headers: { 'Content-Type': 'application/json' },
+})
 
 /**
  * 백엔드 호출 실패(네트워크 오류 또는 success:false 응답)를 구분하기 위한 에러.
@@ -15,35 +21,32 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response
-  try {
-    res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json', ...init?.headers },
-      ...init,
-    })
-  } catch {
-    throw new ApiError('백엔드 서버에 연결할 수 없습니다.', 'network')
+function toApiError(err: unknown): ApiError {
+  if (err instanceof AxiosError) {
+    const body = err.response?.data as ApiResponse<unknown> | undefined
+    if (body?.message) return new ApiError(body.message, 'server', body.code)
+    if (err.response) return new ApiError(`요청이 실패했습니다. (${err.response.status})`, 'server')
+    return new ApiError('백엔드 서버에 연결할 수 없습니다.', 'network')
   }
-
-  let body: ApiResponse<T>
-  try {
-    body = await res.json()
-  } catch {
-    throw new ApiError('백엔드 응답을 해석할 수 없습니다.', 'network')
-  }
-
-  if (!res.ok || !body.success) {
-    throw new ApiError(body.message ?? '요청이 실패했습니다.', 'server', body.code)
-  }
-
-  return body.data
+  return new ApiError('알 수 없는 오류가 발생했습니다.', 'network')
 }
 
-export function get<T>(path: string): Promise<T> {
-  return request<T>(path)
+export async function get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+  try {
+    const res = await client.get<ApiResponse<T>>(path, { params })
+    if (!res.data.success) throw new ApiError(res.data.message, 'server', res.data.code)
+    return res.data.data
+  } catch (err) {
+    throw err instanceof ApiError ? err : toApiError(err)
+  }
 }
 
-export function post<T>(path: string, payload: unknown): Promise<T> {
-  return request<T>(path, { method: 'POST', body: JSON.stringify(payload) })
+export async function post<T>(path: string, payload: unknown): Promise<T> {
+  try {
+    const res = await client.post<ApiResponse<T>>(path, payload)
+    if (!res.data.success) throw new ApiError(res.data.message, 'server', res.data.code)
+    return res.data.data
+  } catch (err) {
+    throw err instanceof ApiError ? err : toApiError(err)
+  }
 }

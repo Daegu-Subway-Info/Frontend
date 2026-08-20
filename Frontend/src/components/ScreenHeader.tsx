@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import styles from './ScreenHeader.module.css'
-import { ChevronLeftIcon } from './icons'
+import AppBar from '@mui/material/AppBar'
+import Toolbar from '@mui/material/Toolbar'
+import IconButton from '@mui/material/IconButton'
+import Typography from '@mui/material/Typography'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 
 interface Props {
   title: string
@@ -13,17 +16,16 @@ interface Props {
 export default function ScreenHeader({ title, right, onBack }: Props) {
   const navigate = useNavigate()
   return (
-    <header className={styles.header}>
-      <button
-        type="button"
-        className={styles.back}
-        aria-label="뒤로가기"
-        onClick={() => (onBack ? onBack() : navigate(-1))}
-      >
-        <ChevronLeftIcon />
-      </button>
-      <h1 className={styles.title}>{title}</h1>
-      <div className={styles.right}>{right}</div>
-    </header>
+    <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Toolbar>
+        <IconButton edge="start" aria-label="뒤로가기" onClick={() => (onBack ? onBack() : navigate(-1))}>
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h2" sx={{ flex: 1 }}>
+          {title}
+        </Typography>
+        {right}
+      </Toolbar>
+    </AppBar>
   )
 }

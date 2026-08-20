@@ -1,149 +1,127 @@
-import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 import LineBadge from '../../components/LineBadge'
 import ScreenHeader from '../../components/ScreenHeader'
-import { getLineDetail, getStationDetail, getStations } from '../../api/backend'
+import { useLineDetailQuery, useLinesQuery, useStationDetailQuery, useStationsQuery } from '../../api/queries'
 import { ApiError } from '../../api/http'
-import type { StationResponse } from '../../api/types'
-import { useLines } from '../../hooks/useLines'
-import { useRouteDraft } from '../../hooks/useRouteDraft'
+import { useRouteDraftStore } from '../../store/routeDraftStore'
 import { groupByName } from '../../utils/groupStations'
-import styles from './StationDetail.module.css'
 
 export default function StationDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { setFrom, setTo } = useRouteDraft()
-  const { lineColor } = useLines()
+  const { setFrom, setTo } = useRouteDraftStore()
+  const stationId = id ? Number(id) : undefined
 
-  const [station, setStation] = useState<StationResponse | null | undefined>(undefined)
-  const [neighbors, setNeighbors] = useState<[StationResponse?, StationResponse?]>([])
-  const [otherLines, setOtherLines] = useState<StationResponse[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const { data: lines = [] } = useLinesQuery()
+  const lineColor = (lineId: number) => lines.find((l) => l.id === lineId)?.lineColor ?? '#6B7280'
 
-  useEffect(() => {
-    if (!id) return
-    const stationId = Number(id)
-    setStation(undefined)
-    setError(null)
+  const { data: station, isLoading, error } = useStationDetailQuery(stationId)
+  const { data: lineDetail } = useLineDetailQuery(station?.lineId)
+  const { data: allStations = [] } = useStationsQuery()
 
-    getStationDetail(stationId)
-      .then(async (s) => {
-        setStation(s)
-
-        const [lineDetail, allStations] = await Promise.all([getLineDetail(s.lineId), getStations()])
-        const ordered = lineDetail.stations
-        const idx = ordered.findIndex((x) => x.id === s.id)
-        setNeighbors([ordered[idx - 1], ordered[idx + 1]])
-
-        const group = groupByName(allStations).get(s.stationName) ?? []
-        setOtherLines(group.filter((g) => g.id !== s.id))
-      })
-      .catch((err) => {
-        setStation(null)
-        setError(err instanceof ApiError ? err.message : '역 정보를 불러오지 못했습니다.')
-      })
-  }, [id])
-
-  if (station === undefined) {
+  if (isLoading) {
     return (
-      <div className={styles.page}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <ScreenHeader title="역 정보" />
-        <div className={styles.state}>불러오는 중...</div>
-      </div>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress size={24} />
+        </Box>
+      </Box>
     )
   }
 
-  if (!station) {
+  if (error || !station) {
     return (
-      <div className={styles.page}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <ScreenHeader title="역 정보" />
-        <div className={styles.state}>{error ?? '역 정보를 찾을 수 없습니다.'}</div>
-      </div>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+            {error instanceof ApiError ? error.message : '역 정보를 찾을 수 없습니다.'}
+          </Typography>
+        </Box>
+      </Box>
     )
   }
+
+  const ordered = lineDetail?.stations ?? []
+  const idx = ordered.findIndex((x) => x.id === station.id)
+  const prev = idx > 0 ? ordered[idx - 1] : undefined
+  const next = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : undefined
+  const otherLines = (groupByName(allStations).get(station.stationName) ?? []).filter((g) => g.id !== station.id)
 
   return (
-    <div className={styles.page}>
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title="역 정보" />
 
-      <div className={styles.hero}>
-        <h2 className={styles.name}>{station.stationName}</h2>
-        <div className={styles.badgeRow}>
+      <Box sx={{ px: 2, py: 3, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="h1">{station.stationName}</Typography>
+        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
           <LineBadge name={station.lineName} color={lineColor(station.lineId)} />
           {otherLines.map((o) => (
             <LineBadge key={o.id} name={o.lineName} color={lineColor(o.lineId)} />
           ))}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.actionButton}
+      <Box sx={{ display: 'flex', gap: 1, p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Button
+          fullWidth
+          variant="outlined"
           onClick={() => {
             setFrom(station)
             navigate('/')
           }}
         >
           출발역으로 설정
-        </button>
-        <button
-          type="button"
-          className={styles.actionButton}
+        </Button>
+        <Button
+          fullWidth
+          variant="outlined"
           onClick={() => {
             setTo(station)
             navigate('/')
           }}
         >
           도착역으로 설정
-        </button>
-      </div>
+        </Button>
+      </Box>
 
-      <div className={styles.section}>
-        <p className={styles.sectionTitle}>인접역 ({station.lineName})</p>
-        <div className={styles.neighborLine}>
-          <div className={styles.neighborStations}>
-            {neighbors.every((n) => !n) && <span className={styles.arrow}>인접역 없음</span>}
-            {neighbors[0] && (
-              <button
-                type="button"
-                className={styles.neighborButton}
-                onClick={() => navigate(`/stations/${neighbors[0]!.id}`)}
-              >
-                ← {neighbors[0].stationName}
-              </button>
-            )}
-            {neighbors[1] && (
-              <button
-                type="button"
-                className={styles.neighborButton}
-                onClick={() => navigate(`/stations/${neighbors[1]!.id}`)}
-              >
-                {neighbors[1].stationName} →
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          인접역 ({station.lineName})
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {!prev && !next && (
+            <Typography variant="body2" color="text.disabled">
+              인접역 없음
+            </Typography>
+          )}
+          {prev && (
+            <Chip label={`← ${prev.stationName}`} onClick={() => navigate(`/stations/${prev.id}`)} />
+          )}
+          {next && (
+            <Chip label={`${next.stationName} →`} onClick={() => navigate(`/stations/${next.id}`)} />
+          )}
+        </Box>
+      </Box>
 
       {otherLines.length > 0 && (
-        <div className={styles.section}>
-          <p className={styles.sectionTitle}>환승</p>
-          <div className={styles.neighborStations}>
+        <Box sx={{ p: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            환승
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {otherLines.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                className={styles.neighborButton}
-                onClick={() => navigate(`/stations/${o.id}`)}
-              >
-                {o.lineName} 승강장
-              </button>
+              <Chip key={o.id} label={`${o.lineName} 승강장`} onClick={() => navigate(`/stations/${o.id}`)} />
             ))}
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }

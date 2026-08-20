@@ -15,26 +15,26 @@ import type {
  */
 
 export function getLines(): Promise<LineResponse[]> {
-  return get('/api/lines')
+  return get('/lines')
 }
 
 export function getLineDetail(lineId: number): Promise<LineDetailResponse> {
-  return get(`/api/lines/${lineId}`)
+  return get(`/lines/${lineId}`)
 }
 
 export function getStations(): Promise<StationResponse[]> {
-  return get('/api/stations')
+  return get('/stations')
 }
 
 export function getStationDetail(stationId: number): Promise<StationResponse> {
-  return get(`/api/stations/${stationId}`)
+  return get(`/stations/${stationId}`)
 }
 
 export function searchStations(keyword: string): Promise<StationSearchResponse> {
-  return get(`/api/stations/search?keyword=${encodeURIComponent(keyword)}`)
+  return get('/stations/search', { keyword })
 }
 
 export function findRoute(fromStationId: number, toStationId: number): Promise<RouteResponse> {
   const payload: RouteRequest = { fromStationId, toStationId }
-  return post('/api/routes', payload)
+  return post('/routes', payload)
 }
