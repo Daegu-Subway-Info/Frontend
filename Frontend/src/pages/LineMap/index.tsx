@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import LineBadge from '../../components/LineBadge'
 import ScreenHeader from '../../components/ScreenHeader'
 import { LINES } from '../../data/stations'
 import { STATIONS_BY_LINE } from '../../data/subway'
@@ -19,6 +20,10 @@ const TABS: { id: Tab; label: string }[] = [
  * 실제 지리 좌표 기반 SVG 노선도가 아니라, 역 순서를 세로 목록으로 보여주는
  * 스키매틱(schematic) 노선도다. 틀 단계에서는 탐색 기능(역 탭 → 상세 이동)이
  * 중요해서 이 형태로 먼저 두고, 좌표 데이터가 확보되면 실제 지도로 교체한다.
+ *
+ * 환승역(반월당·청라언덕·명덕)은 세 노선이 각자 별도 세로줄로 그려지기 때문에
+ * 줄 사이를 잇는 선을 그리지 않는다 — 대신 해당 역 이름 옆에 갈아탈 수 있는
+ * 다른 노선 배지를 붙여서 "여기서 환승 가능"을 명시한다.
  */
 export default function LineMap() {
   const navigate = useNavigate()
@@ -69,8 +74,19 @@ export default function LineMap() {
                       <div className={styles.track} style={{ backgroundColor: line.color }} />
                     )}
                   </div>
-                  <span className={`${styles.stationLabel} ${station.isTransfer ? styles.transfer : ''}`}>
-                    {station.name}
+                  <span className={styles.stationTextCol}>
+                    <span className={`${styles.stationLabel} ${station.isTransfer ? styles.transfer : ''}`}>
+                      {station.name}
+                    </span>
+                    {station.isTransfer && (
+                      <span className={styles.transferBadges}>
+                        {station.lines
+                          .filter((l) => l !== lineId)
+                          .map((l) => (
+                            <LineBadge key={l} line={l} />
+                          ))}
+                      </span>
+                    )}
                   </span>
                 </button>
               ))}

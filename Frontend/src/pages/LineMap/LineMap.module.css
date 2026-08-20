@@ -55,7 +55,7 @@
 
 .stationButton {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
   border: none;
   background: none;
@@ -90,11 +90,23 @@
   height: 22px;
 }
 
+.stationTextCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
 .stationLabel {
   font: var(--text-body2);
-  padding: 4px 0;
 }
 
 .stationLabel.transfer {
   font-weight: 700;
+}
+
+/* 환승역: 이 역에서 갈아탈 수 있는 다른 노선을 배지로 보여준다. */
+.transferBadges {
+  display: flex;
+  gap: 4px;
 }
