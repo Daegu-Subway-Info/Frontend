@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react'
+import type { StationResponse } from '../api/types'
 import { readJSON, writeJSON } from '../utils/storage'
 
 const KEY = 'daegu-subway:route-draft'
 
 interface Draft {
-  fromId?: string
-  toId?: string
+  from?: StationResponse
+  to?: StationResponse
 }
 
 /** 홈 화면의 출발/도착 선택을 역 검색 화면과 공유하기 위한 draft 상태. */
@@ -17,13 +18,15 @@ export function useRouteDraft() {
     writeJSON(KEY, next)
   }, [])
 
-  const setFrom = useCallback((fromId: string) => update({ ...readJSON(KEY, {}), fromId }), [update])
-  const setTo = useCallback((toId: string) => update({ ...readJSON(KEY, {}), toId }), [update])
-  const swap = useCallback(
-    () => update({ fromId: draft.toId, toId: draft.fromId }),
-    [draft, update],
+  const setFrom = useCallback(
+    (station: StationResponse) => update({ ...readJSON(KEY, {}), from: station }),
+    [update],
   )
-  const clear = useCallback(() => update({}), [update])
+  const setTo = useCallback(
+    (station: StationResponse) => update({ ...readJSON(KEY, {}), to: station }),
+    [update],
+  )
+  const swap = useCallback(() => update({ from: draft.to, to: draft.from }), [draft, update])
 
-  return { draft, setFrom, setTo, swap, clear }
+  return { draft, setFrom, setTo, swap }
 }

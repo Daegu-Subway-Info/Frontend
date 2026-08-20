@@ -1,49 +1,65 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import LineBadge from '../../components/LineBadge'
 import ScreenHeader from '../../components/ScreenHeader'
-import { findRoute } from '../../api/subwayApi'
-import { getStation } from '../../data/subway'
-import { LINES } from '../../data/stations'
-import type { Route } from '../../types/subway'
+import { findRoute } from '../../api/backend'
+import { ApiError } from '../../api/http'
+import type { RouteResponse, StationResponse } from '../../api/types'
+import { useLines } from '../../hooks/useLines'
 import styles from './RouteResult.module.css'
 
-export default function RouteResult() {
-  const [searchParams] = useSearchParams()
-  const fromId = searchParams.get('fromId') ?? ''
-  const toId = searchParams.get('toId') ?? ''
+interface LocationState {
+  from?: StationResponse
+  to?: StationResponse
+}
 
-  const [route, setRoute] = useState<Route | null | undefined>(undefined) // undefined = 로딩중
-  const from = getStation(fromId)
-  const to = getStation(toId)
+export default function RouteResult() {
+  const location = useLocation()
+  const { from, to } = (location.state as LocationState) ?? {}
+  const { lineColor } = useLines()
+
+  const [route, setRoute] = useState<RouteResponse | null | undefined>(undefined) // undefined = 로딩중
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!fromId || !toId) {
-      setRoute(null)
-      return
-    }
+    if (!from || !to) return
     setRoute(undefined)
-    findRoute(fromId, toId).then(setRoute)
-  }, [fromId, toId])
+    setError(null)
+    findRoute(from.id, to.id)
+      .then(setRoute)
+      .catch((err) => {
+        setRoute(null)
+        setError(err instanceof ApiError ? err.message : '경로를 찾을 수 없습니다.')
+      })
+  }, [from, to])
 
-  const title = from && to ? `${from.name} → ${to.name}` : '경로 탐색'
+  const title = from && to ? `${from.stationName} → ${to.stationName}` : '경로 탐색'
+
+  if (!from || !to) {
+    return (
+      <div className={styles.page}>
+        <ScreenHeader title={title} />
+        <div className={styles.state}>홈 화면에서 출발역/도착역을 먼저 선택해주세요.</div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.page}>
       <ScreenHeader title={title} />
 
       {route === undefined && <div className={styles.state}>경로를 찾는 중...</div>}
-      {route === null && <div className={styles.state}>경로를 찾을 수 없습니다.</div>}
+      {route === null && <div className={styles.state}>{error}</div>}
 
       {route && (
         <>
           <div className={styles.summary}>
             <div className={styles.summaryItem}>
-              <span className={styles.summaryValue}>{route.totalMinutes}분</span>
+              <span className={styles.summaryValue}>{Math.round(route.totalDurationSeconds / 60)}분</span>
               <span className={styles.summaryLabel}>소요시간</span>
             </div>
             <div className={styles.summaryItem}>
-              <span className={styles.summaryValue}>{route.totalStops}정거장</span>
+              <span className={styles.summaryValue}>{route.totalDistanceKm.toFixed(1)}km</span>
               <span className={styles.summaryLabel}>환승 {route.transferCount}회</span>
             </div>
             <div className={styles.summaryItem}>
@@ -53,46 +69,35 @@ export default function RouteResult() {
           </div>
 
           <div className={styles.timeline}>
-            {route.legs.map((leg, legIndex) => (
-              <div key={`${leg.line}-${legIndex}`}>
-                <p className={styles.legLabel}>
-                  {legIndex > 0 && '환승 · '}
-                  {LINES[leg.line].name} · {leg.direction}
-                </p>
-                {leg.stations.map((station, i) => {
-                  const isFirstOverall = legIndex === 0 && i === 0
-                  const isLastOverall =
-                    legIndex === route.legs.length - 1 && i === leg.stations.length - 1
-                  const isLastInLeg = i === leg.stations.length - 1
-                  return (
-                    <div className={styles.stationRow} key={station.id + i}>
-                      <div className={styles.markerCol}>
-                        <div
-                          className={`${styles.dot} ${isFirstOverall ? styles.start : ''} ${
-                            isLastOverall ? styles.end : ''
-                          }`}
-                          style={!isFirstOverall && !isLastOverall ? { borderColor: LINES[leg.line].color } : undefined}
-                        />
-                        {!isLastInLeg && (
-                          <div className={styles.track} style={{ backgroundColor: LINES[leg.line].color }} />
-                        )}
-                      </div>
-                      <div className={styles.stationInfo}>
-                        <div className={styles.stationMain}>
-                          <span className={styles.stationName}>{station.name}</span>
-                          {isFirstOverall && <span className={styles.stationMeta}>출발</span>}
-                          {isLastOverall && <span className={styles.stationMeta}>도착</span>}
-                          {!isFirstOverall && !isLastOverall && isLastInLeg && (
-                            <span className={styles.stationMeta}>환승</span>
-                          )}
-                        </div>
-                        {(isFirstOverall || isLastOverall) && <LineBadge line={leg.line} />}
-                      </div>
+            {route.path.map((station, i) => {
+              const isFirst = i === 0
+              const isLast = i === route.path.length - 1
+              const prevLineId = i > 0 ? route.path[i - 1].lineId : station.lineId
+              const isTransferPoint = !isFirst && prevLineId !== station.lineId
+              const color = lineColor(station.lineId)
+              return (
+                <div className={styles.stationRow} key={`${station.id}-${i}`}>
+                  <div className={styles.markerCol}>
+                    <div
+                      className={`${styles.dot} ${isFirst ? styles.start : ''} ${isLast ? styles.end : ''}`}
+                      style={!isFirst && !isLast ? { borderColor: color } : undefined}
+                    />
+                    {!isLast && <div className={styles.track} style={{ backgroundColor: color }} />}
+                  </div>
+                  <div className={styles.stationInfo}>
+                    <div className={styles.stationMain}>
+                      <span className={styles.stationName}>{station.stationName}</span>
+                      {isFirst && <span className={styles.stationMeta}>출발</span>}
+                      {isLast && <span className={styles.stationMeta}>도착</span>}
+                      {isTransferPoint && <span className={styles.stationMeta}>환승</span>}
                     </div>
-                  )
-                })}
-              </div>
-            ))}
+                    {(isFirst || isLast || isTransferPoint) && (
+                      <LineBadge name={station.lineName} color={color} />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           <div className={styles.footer}>

@@ -1,12 +1,9 @@
-import { LINES } from '../data/stations'
-import type { LineId } from '../types/subway'
 import styles from './LineBadge.module.css'
 
-export default function LineBadge({ line }: { line: LineId }) {
-  const info = LINES[line]
+export default function LineBadge({ name, color }: { name: string; color: string }) {
   return (
-    <span className={styles.badge} style={{ backgroundColor: info.color }}>
-      {info.name}
+    <span className={styles.badge} style={{ backgroundColor: color }}>
+      {name}
     </span>
   )
 }

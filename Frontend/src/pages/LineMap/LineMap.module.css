@@ -28,6 +28,12 @@
   color: #fff;
 }
 
+.state {
+  padding: var(--space-4);
+  color: var(--color-text-sub);
+  text-align: center;
+}
+
 .body {
   flex: 1;
   display: flex;

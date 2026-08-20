@@ -1,21 +1,64 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import LineBadge from '../../components/LineBadge'
 import ScreenHeader from '../../components/ScreenHeader'
-import { getStation, neighborsOnLine } from '../../data/subway'
+import { getLineDetail, getStationDetail, getStations } from '../../api/backend'
+import { ApiError } from '../../api/http'
+import type { StationResponse } from '../../api/types'
+import { useLines } from '../../hooks/useLines'
 import { useRouteDraft } from '../../hooks/useRouteDraft'
+import { groupByName } from '../../utils/groupStations'
 import styles from './StationDetail.module.css'
 
 export default function StationDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { setFrom, setTo } = useRouteDraft()
-  const station = id ? getStation(id) : undefined
+  const { lineColor } = useLines()
+
+  const [station, setStation] = useState<StationResponse | null | undefined>(undefined)
+  const [neighbors, setNeighbors] = useState<[StationResponse?, StationResponse?]>([])
+  const [otherLines, setOtherLines] = useState<StationResponse[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    const stationId = Number(id)
+    setStation(undefined)
+    setError(null)
+
+    getStationDetail(stationId)
+      .then(async (s) => {
+        setStation(s)
+
+        const [lineDetail, allStations] = await Promise.all([getLineDetail(s.lineId), getStations()])
+        const ordered = lineDetail.stations
+        const idx = ordered.findIndex((x) => x.id === s.id)
+        setNeighbors([ordered[idx - 1], ordered[idx + 1]])
+
+        const group = groupByName(allStations).get(s.stationName) ?? []
+        setOtherLines(group.filter((g) => g.id !== s.id))
+      })
+      .catch((err) => {
+        setStation(null)
+        setError(err instanceof ApiError ? err.message : '역 정보를 불러오지 못했습니다.')
+      })
+  }, [id])
+
+  if (station === undefined) {
+    return (
+      <div className={styles.page}>
+        <ScreenHeader title="역 정보" />
+        <div className={styles.state}>불러오는 중...</div>
+      </div>
+    )
+  }
 
   if (!station) {
     return (
       <div className={styles.page}>
         <ScreenHeader title="역 정보" />
-        <div className={styles.state}>역 정보를 찾을 수 없습니다.</div>
+        <div className={styles.state}>{error ?? '역 정보를 찾을 수 없습니다.'}</div>
       </div>
     )
   }
@@ -25,11 +68,11 @@ export default function StationDetail() {
       <ScreenHeader title="역 정보" />
 
       <div className={styles.hero}>
-        <h2 className={styles.name}>{station.name}</h2>
-        {station.alias && <p className={styles.alias}>{station.alias}</p>}
+        <h2 className={styles.name}>{station.stationName}</h2>
         <div className={styles.badgeRow}>
-          {station.lines.map((line) => (
-            <LineBadge key={line} line={line} />
+          <LineBadge name={station.lineName} color={lineColor(station.lineId)} />
+          {otherLines.map((o) => (
+            <LineBadge key={o.id} name={o.lineName} color={lineColor(o.lineId)} />
           ))}
         </div>
       </div>
@@ -39,7 +82,7 @@ export default function StationDetail() {
           type="button"
           className={styles.actionButton}
           onClick={() => {
-            setFrom(station.id)
+            setFrom(station)
             navigate('/')
           }}
         >
@@ -49,7 +92,7 @@ export default function StationDetail() {
           type="button"
           className={styles.actionButton}
           onClick={() => {
-            setTo(station.id)
+            setTo(station)
             navigate('/')
           }}
         >
@@ -58,31 +101,49 @@ export default function StationDetail() {
       </div>
 
       <div className={styles.section}>
-        <p className={styles.sectionTitle}>인접역</p>
-        {station.lines.map((line) => {
-          const neighbors = neighborsOnLine(line, station)
-          return (
-            <div className={styles.neighborLine} key={line}>
-              <LineBadge line={line} />
-              <div className={styles.neighborStations}>
-                {neighbors.length === 0 && <span className={styles.arrow}>인접역 없음</span>}
-                {neighbors.map((n, i) => (
-                  <span key={n.id} className={styles.neighborStations}>
-                    {i > 0 && <span className={styles.arrow}>·</span>}
-                    <button
-                      type="button"
-                      className={styles.neighborButton}
-                      onClick={() => navigate(`/stations/${encodeURIComponent(n.id)}`)}
-                    >
-                      {n.name}
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )
-        })}
+        <p className={styles.sectionTitle}>인접역 ({station.lineName})</p>
+        <div className={styles.neighborLine}>
+          <div className={styles.neighborStations}>
+            {neighbors.every((n) => !n) && <span className={styles.arrow}>인접역 없음</span>}
+            {neighbors[0] && (
+              <button
+                type="button"
+                className={styles.neighborButton}
+                onClick={() => navigate(`/stations/${neighbors[0]!.id}`)}
+              >
+                ← {neighbors[0].stationName}
+              </button>
+            )}
+            {neighbors[1] && (
+              <button
+                type="button"
+                className={styles.neighborButton}
+                onClick={() => navigate(`/stations/${neighbors[1]!.id}`)}
+              >
+                {neighbors[1].stationName} →
+              </button>
+            )}
+          </div>
+        </div>
       </div>
+
+      {otherLines.length > 0 && (
+        <div className={styles.section}>
+          <p className={styles.sectionTitle}>환승</p>
+          <div className={styles.neighborStations}>
+            {otherLines.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                className={styles.neighborButton}
+                onClick={() => navigate(`/stations/${o.id}`)}
+              >
+                {o.lineName} 승강장
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

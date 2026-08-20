@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import LineBadge from '../../components/LineBadge'
 import { SwapIcon } from '../../components/icons'
-import { getStation } from '../../data/subway'
+import { useLines } from '../../hooks/useLines'
 import { useRecentRoutes } from '../../hooks/useRecentRoutes'
 import { useRouteDraft } from '../../hooks/useRouteDraft'
 import styles from './Home.module.css'
@@ -10,15 +10,15 @@ export default function Home() {
   const navigate = useNavigate()
   const { draft, swap } = useRouteDraft()
   const { recent, addRecent } = useRecentRoutes()
+  const { lineColor } = useLines()
 
-  const fromStation = draft.fromId ? getStation(draft.fromId) : undefined
-  const toStation = draft.toId ? getStation(draft.toId) : undefined
-  const canSearch = Boolean(fromStation && toStation && fromStation.id !== toStation.id)
+  const { from, to } = draft
+  const canSearch = Boolean(from && to && from.id !== to.id)
 
   const handleSubmit = () => {
-    if (!fromStation || !toStation) return
-    addRecent(fromStation.id, toStation.id)
-    navigate(`/route-result?fromId=${encodeURIComponent(fromStation.id)}&toId=${encodeURIComponent(toStation.id)}`)
+    if (!from || !to) return
+    addRecent(from, to)
+    navigate('/route-result', { state: { from, to } })
   }
 
   return (
@@ -33,15 +33,15 @@ export default function Home() {
             <div className={styles.slots}>
               <button type="button" className={styles.slot} onClick={() => navigate('/search?slot=from')}>
                 <span className={styles.slotLabel}>출발역</span>
-                <span className={`${styles.slotValue} ${fromStation ? '' : styles.placeholder}`}>
-                  {fromStation?.name ?? '출발역을 선택하세요'}
+                <span className={`${styles.slotValue} ${from ? '' : styles.placeholder}`}>
+                  {from?.stationName ?? '출발역을 선택하세요'}
                 </span>
               </button>
               <div className={styles.divider} />
               <button type="button" className={styles.slot} onClick={() => navigate('/search?slot=to')}>
                 <span className={styles.slotLabel}>도착역</span>
-                <span className={`${styles.slotValue} ${toStation ? '' : styles.placeholder}`}>
-                  {toStation?.name ?? '도착역을 선택하세요'}
+                <span className={`${styles.slotValue} ${to ? '' : styles.placeholder}`}>
+                  {to?.stationName ?? '도착역을 선택하세요'}
                 </span>
               </button>
             </div>
@@ -61,28 +61,19 @@ export default function Home() {
             <p className={styles.empty}>최근 검색한 경로가 없습니다.</p>
           ) : (
             <div className={styles.recentList}>
-              {recent.map((r) => {
-                const from = getStation(r.fromId)
-                const to = getStation(r.toId)
-                if (!from || !to) return null
-                return (
-                  <button
-                    key={`${r.fromId}-${r.toId}-${r.at}`}
-                    type="button"
-                    className={styles.recentItem}
-                    onClick={() =>
-                      navigate(
-                        `/route-result?fromId=${encodeURIComponent(from.id)}&toId=${encodeURIComponent(to.id)}`,
-                      )
-                    }
-                  >
-                    <span>
-                      {from.name} → {to.name}
-                    </span>
-                    <LineBadge line={to.lines[0]} />
-                  </button>
-                )
-              })}
+              {recent.map((r) => (
+                <button
+                  key={`${r.from.id}-${r.to.id}-${r.at}`}
+                  type="button"
+                  className={styles.recentItem}
+                  onClick={() => navigate('/route-result', { state: { from: r.from, to: r.to } })}
+                >
+                  <span>
+                    {r.from.stationName} → {r.to.stationName}
+                  </span>
+                  <LineBadge name={r.to.lineName} color={lineColor(r.to.lineId)} />
+                </button>
+              ))}
             </div>
           )}
         </div>
